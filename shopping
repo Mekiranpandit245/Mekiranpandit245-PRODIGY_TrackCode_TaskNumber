@@ -1,0 +1,84 @@
+# This is a conceptual Python code example for a simplified e-commerce backend.
+# It does not include a full frontend or database integration.
+# For a production-ready system, you would need a web framework (like Flask or Django)
+# and a database.
+
+class Product:
+    def __init__(self, product_id, name, description, price, image_url, stock):
+        self.product_id = product_id
+        self.name = name
+        self.description = description
+        self.price = price
+        self.image_url = image_url
+        self.stock = stock
+
+    def __str__(self):
+        return f"{self.name} - ${self.price}"
+
+class ShoppingCart:
+    def __init__(self):
+        self.items = {}  # {product_id: quantity}
+
+    def add_item(self, product, quantity=1):
+        if product.product_id in self.items:
+            self.items[product.product_id] += quantity
+        else:
+            self.items[product.product_id] = quantity
+
+    def remove_item(self, product_id, quantity=1):
+        if product_id in self.items:
+            self.items[product_id] -= quantity
+            if self.items[product_id] <= 0:
+                del self.items[product_id]
+
+    def get_items(self, products):
+        cart_items = []
+        for product_id, quantity in self.items.items():
+            product = next((p for p in products if p.product_id == product_id), None)
+            if product:
+                cart_items.append({"product": product, "quantity": quantity})
+        return cart_items
+
+    def calculate_total(self, products):
+        total = 0
+        for product_id, quantity in self.items.items():
+            product = next((p for p in products if p.product_id == product_id), None)
+            if product:
+                total += product.price * quantity
+        return total
+
+    def clear(self):
+        self.items = {}
+
+# Example usage
+products = [
+    Product(1, "Laptop", "Powerful laptop", 1200, "laptop.jpg", 10),
+    Product(2, "Mouse", "Wireless mouse", 25, "mouse.jpg", 50),
+    Product(3, "Keyboard", "Mechanical keyboard", 80, "keyboard.jpg", 20),
+]
+
+cart = ShoppingCart()
+
+cart.add_item(products[0])  # Add laptop
+cart.add_item(products[1], 2) #add 2 mouses
+cart.add_item(products[2]) # add keyboard
+
+print("Cart items:")
+for item in cart.get_items(products):
+    print(f"{item['product'].name} x {item['quantity']}")
+
+print(f"Total: ${cart.calculate_total(products)}")
+
+cart.remove_item(2) #remove 1 mouse
+print(f"Total after removing 1 mouse: ${cart.calculate_total(products)}")
+
+cart.clear()
+print(f"Total after clearing cart: ${cart.calculate_total(products)}")
+
+# Further development would include:
+# 1. Database integration (e.g., SQLite, PostgreSQL)
+# 2. Web framework (e.g., Flask, Django) for handling HTTP requests
+# 3. User authentication and order management
+# 4. Templates for rendering HTML pages
+# 5. Payment gateway integration.
+# 6. Order tracking, review system, filters and sorting.
