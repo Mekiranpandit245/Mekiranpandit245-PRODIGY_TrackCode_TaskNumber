@@ -1,0 +1,116 @@
+import hashlib
+import os
+import secrets
+from datetime import datetime, timedelta
+from typing import Dict, Optional, Tuple
+
+# In-memory user database (replace with a persistent database in production)
+_users: Dict[str, Dict[str, str]] = {}
+_sessions: Dict[str, Tuple[str, datetime]] = {}
+
+# Secret key for session management (generate a strong, random key)
+SECRET_KEY = secrets.token_hex(32)
+
+
+def hash_password(password: str) -> str:
+    """Hashes a password using SHA-256 with a salt."""
+    salt = secrets.token_hex(16)
+    salted_password = salt + password
+    hashed_password = hashlib.sha256(salted_password.encode()).hexdigest()
+    return f"{salt}:{hashed_password}"
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """Verifies a password against its hashed version."""
+    salt, stored_hash = hashed_password.split(":")
+    salted_password = salt + password
+    return hashlib.sha256(salted_password.encode()).hexdigest() == stored_hash
+
+
+def generate_session_token(username: str) -> str:
+    """Generates a secure session token."""
+    token = secrets.token_hex(32)
+    expiry = datetime.utcnow() + timedelta(hours=1)  # Session expires in 1 hour
+    _sessions[token] = (username, expiry)
+    return token
+
+
+def validate_session(token: str) -> Optional[str]:
+    """Validates a session token and returns the username if valid."""
+    if token in _sessions:
+        username, expiry = _sessions[token]
+        if datetime.utcnow() < expiry:
+            return username
+        else:
+            del _sessions[token]  # Session expired
+    return None
+
+
+def register_user(username: str, password: str) -> bool:
+    """Registers a new user."""
+    if username in _users:
+        return False  # Username already exists
+    _users[username] = {"password": hash_password(password), "role": "user"} #default role is user
+    return True
+
+
+def login_user(username: str, password: str) -> Optional[str]:
+    """Logs in a user and returns a session token if successful."""
+    if username in _users and verify_password(password, _users[username]["password"]):
+        return generate_session_token(username)
+    return None
+
+def get_user_role(username: str) -> str:
+    """Retrieves user role"""
+    return _users[username]["role"]
+
+def protected_route(session_token: str, required_role:str = "user"):
+    """Example of a protected route."""
+    username = validate_session(session_token)
+    if username:
+      user_role = get_user_role(username)
+      if user_role == required_role or (required_role == "user" and user_role == "admin"):
+        return f"Access granted to {username} with role: {user_role}"
+      else:
+        return "Access denied: insufficient permissions"
+    else:
+        return "Access denied: invalid session."
+
+# Example usage
+if __name__ == "__main__":
+    if register_user("sheetal", "password123"):
+        print("User 'sheetal' registered successfully.")
+    else:
+        print("Username already exists.")
+
+    session_token = login_user("sheetal", "password123")
+    if session_token:
+        print(f"Login successful. Session token: {session_token}")
+        print(protected_route(session_token))
+    else:
+        print("Login failed.")
+
+    if register_user("pinky", "password456"):
+        print("User 'pinky' registered successfully.")
+    else:
+        print("Username already exists.")
+
+    session_token_bob = login_user("pinky", "password456")
+    if session_token_bob:
+        print(f"Login successful. Session token: {session_token_bob}")
+        print(protected_route(session_token_bob))
+    else:
+        print("Login failed.")
+
+    register_user("admin", "adminpass")
+    _users["admin"]["role"] = "admin"
+    admin_session = login_user("admin", "adminpass")
+
+    if admin_session:
+      print(protected_route(admin_session, required_role="admin"))
+      print(protected_route(admin_session))
+
+    else:
+        print("admin login failed")
+
+    print(protected_route("invalid_token")) #invalid token
